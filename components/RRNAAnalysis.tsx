@@ -251,35 +251,48 @@ const RRNAAnalysis = () => {
     }, 100);
   };
 
+  type SimResultItem = {
+    generation: number;
+    total_divergence: number;
+  };
+  
   const summaryStats = useMemo(() => {
     if (simResults.length === 0) return null;
-    
-    const generations = simResults[0].map(d => d.generation);
-    const summary = generations.map(gen => {
-      const values = simResults.map(run => 
-        run.find(d => d.generation === gen)?.total_divergence || 0
-      ).filter(v => v !== undefined && !isNaN(v));
-      
+  
+    // Explicitly type d as SimResultItem
+    const generations = simResults[0].map((d: SimResultItem) => d.generation);
+  
+    const summary = generations.map((gen: number) => {
+      // Explicitly type run as array of SimResultItem
+      const values = simResults
+        .map((run: SimResultItem[]) =>
+          run.find((d: SimResultItem) => d.generation === gen)?.total_divergence || 0
+        )
+        // Type guard to tell TS these are numbers
+        .filter((v): v is number => v !== undefined && !isNaN(v));
+  
+      // Sort values for median and quartiles
       values.sort((a, b) => a - b);
-      
+  
       const mean = values.reduce((a, b) => a + b, 0) / values.length;
       const median = values[Math.floor(values.length / 2)];
       const q25 = values[Math.floor(values.length * 0.25)];
       const q75 = values[Math.floor(values.length * 0.75)];
-      
+  
       return {
         generation: gen,
-        mean: mean,
-        median: median,
-        q25: q25,
-        q75: q75,
+        mean,
+        median,
+        q25,
+        q75,
         min: values[0],
-        max: values[values.length - 1]
+        max: values[values.length - 1],
       };
     });
-    
+  
     return summary;
   }, [simResults]);
+  
 
   return (
     <div className="p-6 max-w-7xl mx-auto bg-gray-50 min-h-screen">
