@@ -76,7 +76,7 @@ const RRNAAnalysis = () => {
 
   const processObservedData = useMemo(() => {
     if (uploadedFiles.length === 0) return null;
-
+  
     const strainGenData: any = {};
     
     uploadedFiles.forEach(file => {
@@ -92,7 +92,7 @@ const RRNAAnalysis = () => {
       strainGenData[key].files.push(file.fileId);
       strainGenData[key].allData.push(...file.data);
     });
-
+  
     const strainData: any = {};
     
     Object.values(strainGenData).forEach((entry: any) => {
@@ -109,36 +109,41 @@ const RRNAAnalysis = () => {
       });
       
       const polymorphisms = Array.from(uniquePolymorphisms.values());
-      
-      const avgDivergence = polymorphisms.reduce((sum: number, d: any) => sum + (1 - d.frequency), 0) / 
-                           Math.max(1, polymorphisms.length);
-      
-      const rrs_mutations = polymorphisms.filter((d: any) => d.seq_id === 'rrsB');
-      const rrl_mutations = polymorphisms.filter((d: any) => d.seq_id === 'rrlB');
-      
-      const rrs_divergence = rrs_mutations.reduce((sum: number, d: any) => sum + (1 - d.frequency), 0) / 
-                            Math.max(1, rrs_mutations.length);
-      const rrl_divergence = rrl_mutations.reduce((sum: number, d: any) => sum + (1 - d.frequency), 0) / 
-                            Math.max(1, rrl_mutations.length);
+  
+      const OPERONLENGTHS = { rrsB: 1541, rrlB: 2904 };
+  
+      const rrsmutations = polymorphisms.filter(d => d.seq_id === "rrsB");
+      const rrlmutations = polymorphisms.filter(d => d.seq_id === "rrlB");
+  
+      // Divergence: frequency-weighted, normalized by all possible sites!
+      const sumFreqRrs = rrsmutations.reduce((sum, d) => sum + d.frequency, 0);
+      const sumFreqRrl = rrlmutations.reduce((sum, d) => sum + d.frequency, 0);
+  
+      const rrs_divergence = sumFreqRrs / OPERONLENGTHS.rrsB;
+      const rrl_divergence = sumFreqRrl / OPERONLENGTHS.rrlB;
+  
+      // Weighted average over all sites of both operons
+      const avg_divergence = (sumFreqRrs + sumFreqRrl) / (OPERONLENGTHS.rrsB + OPERONLENGTHS.rrlB);
       
       strainData[entry.strain].push({
         generation: entry.generation,
-        avg_divergence: avgDivergence,
+        avg_divergence: avg_divergence,
         rrs_divergence: rrs_divergence,
         rrl_divergence: rrl_divergence,
         total_polymorphisms: polymorphisms.length,
-        rrs_count: rrs_mutations.length,
-        rrl_count: rrl_mutations.length,
+        rrs_count: rrsmutations.length,
+        rrl_count: rrlmutations.length,
         numFiles: entry.files.length
       });
     });
-
+  
     Object.keys(strainData).forEach(strain => {
       strainData[strain].sort((a: any, b: any) => a.generation - b.generation);
     });
-
+  
     return strainData;
   }, [uploadedFiles]);
+  
 
   const runSimulation = (numRuns = 100) => {
     setIsSimulating(true);
@@ -429,13 +434,15 @@ const RRNAAnalysis = () => {
           </h2>
           
           <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={summaryStats}>
+          <LineChart data={summaryStats}
+            margin={{ top: 20, right: 20, bottom: 20, left: 60 }}  // increase 'left' as needed
+              >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="generation" 
-                label={{ value: 'Generation', position: 'insideBottom', offset: -5 }}
+                label={{ value: 'Generation', position: 'insideBottom', offset: -5,}}
               />
-              <YAxis label={{ value: 'Avg Divergence from rrnB', angle: -90, position: 'insideLeft', offset: 10 }} />
+              <YAxis label={{ value: 'Avg Divergence from rrnB', angle: -90, position: 'insideLeft', offset: -20, dy: 60 }} />
               <Tooltip />
               <Legend />
               <Line type="monotone" dataKey="mean" stroke="#2563eb" strokeWidth={2} name="Mean" dot={false} />
@@ -486,7 +493,7 @@ const RRNAAnalysis = () => {
 
           <div style={{ width: '100%', height: 400 }}>
             <ResponsiveContainer>
-              <LineChart margin={{ top: 20, right: 20, bottom: 60, left: 60 }}>
+              <LineChart margin={{ top: 20, right: 20, bottom: 60, left: 60, }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis 
                   dataKey="generation" 
@@ -494,10 +501,14 @@ const RRNAAnalysis = () => {
                   domain={[0, 50000]}
                   label={{ value: 'Generation', position: 'insideBottom', offset: -5 }}
                 />
-                <YAxis 
-                  domain={[0, 1]}
-                  label={{ value: 'Avg Divergence from rrnB (1 - frequency)', angle: -90, position: 'insideLeft', offset: 10 }} 
+                <YAxis
+                  // ... other props
+                  domain={[
+                    'auto',
+                    (dataMax: number) => Math.min(dataMax * 1.05)
+                  ]}
                 />
+
                 <Tooltip 
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
@@ -518,7 +529,7 @@ const RRNAAnalysis = () => {
                 />
                 <Legend />
                 {Object.entries(processObservedData).map(([strain, data]: [string, any], i) => {
-                  const isMutator = ['Ara-2', 'Ara-4', 'Ara+3'].includes(strain);
+                  const isMutator = ['Ara-2', 'Ara-4', 'Ara+3', 'Ara-1', 'Ara+6', 'Ara-3',].includes(strain);
                   
                   return (
                     <Line
@@ -540,7 +551,7 @@ const RRNAAnalysis = () => {
           
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
             {Object.entries(processObservedData).map(([strain, data]: [string, any]) => {
-              const isMutator = ['Ara-2', 'Ara-4', 'Ara+3'].includes(strain);
+              const isMutator = ['Ara-1', 'Ara+6', 'Ara-2', 'Ara-3', 'Ara-4', 'Ara+3', ].includes(strain);
               return (
                 <div key={strain} className={`p-3 rounded ${isMutator ? 'bg-red-50 border border-red-200' : 'bg-gray-50'}`}>
                   <p className="font-medium text-sm">
