@@ -93,6 +93,11 @@ Divergence → μL/γ (plateau at equilibrium)
 where μ = mutation rate, L = length, γ = gene conversion rate
 ```
 
+### Observed Data Analysis
+```
+For each timepoint and file, we calculate the frequency-weighted, per-site dissimilarity from the rrnB reference by summing the frequencies of all observed polymorphisms, grouped by operon. This sum is then normalized by the total possible sites that could vary within each operon, rather than the number of polymorphisms actually found. This approach produces a robust, frequency-weighted measure of sequence divergence that is directly comparable to neutral model expectations.
+```
+
 ### Mutator Strain Predictions
 - Higher equilibrium divergence (10-100× more mutations)
 - Similar trajectory shape (gene conversion unchanged)
